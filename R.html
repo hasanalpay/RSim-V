@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gelişmiş RISC-V Assembly Simülatörü</title>
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css"
+  />
+  <style>
+    :root {
+      --bg-primary: #2c3e50;
+      --bg-secondary: #34495e;
+      --text-primary: #ecf0f1;
+      --text-secondary: #bdc3c7;
+      --accent-color: #3498db;
+      --error-color: #e74c3c;
+      --warning-color: #f39c12;
+      --success-color: #2ecc71;
+    }
+    * {
+      box-sizing: border-box;
+      transition: all 0.3s ease;
+    }
+    body {
+      font-family: 'Inter', 'Arial', sans-serif;
+      background: linear-gradient(135deg, var(--bg-primary) 0%, #273746 100%);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .main-container {
+      display: flex;
+      max-width: 1600px;
+      width: 100%;
+      gap: 20px;
+    }
+    .examples-panel {
+      width: 250px;
+      background: rgba(52, 73, 94, 0.7);
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 800px;
+      overflow-y: auto;
+    }
+    .example-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    .example-item {
+      background: #2c3e50;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .example-item:hover {
+      background: var(--accent-color);
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      flex-grow: 1;
+      max-width: 1400px;
+      background: rgba(44, 62, 80, 0.8);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+    }
+    .panel {
+      background: rgba(52, 73, 94, 0.7);
+      border-radius: 8px;
+      padding: 15px;
+    }
+    .CodeMirror {
+      height: 500px !important;
+      background: #263238;
+      color: #7fdbca;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: bold;
+    }
+    .btn-primary {
+      background: var(--accent-color);
+      color: white;
+    }
+    .btn-secondary {
+      background: #2c3e50;
+      color: var(--text-secondary);
+    }
+    .output-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .tab {
+      padding: 8px 15px;
+      background: #2c3e50;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .tab.active {
+      background: var(--accent-color);
+      color: white;
+    }
+    #output-container > div {
+      background: #263238;
+      border-radius: 6px;
+      padding: 15px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre;
+    }
+    .example-desc {
+      color: var(--text-secondary);
+      font-size: 0.8em;
+      margin-top: 5px;
+    }
+    .log-entry {
+      margin-bottom: 5px;
+      padding: 5px;
+      border-radius: 4px;
+    }
+    .log-entry.error {
+      background-color: rgba(231, 76, 60, 0.2);
+      color: #e74c3c;
+    }
+    .log-entry.info {
+      background-color: rgba(52, 152, 219, 0.2);
+      color: #3498db;
+    }
+    .log-entry.success {
+      background-color: rgba(46, 204, 113, 0.2);
+      color: #2ecc71;
+    }
+    .debug-filter {
+      margin-bottom: 10px;
+    }
+
+    /* Mobil cihazlar için düzenlemeler */
+    @media (max-width: 768px) {
+      .main-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .examples-panel {
+        width: 100%;
+        max-height: 300px;
+      }
+      .container {
+        grid-template-columns: 1fr;
+        max-width: 100%;
+      }
+      .CodeMirror {
+        height: 300px !important;
+      }
+    }
+  </style>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"
+  ></script>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/assembly/assembly.min.js"
+  ></script>
+</head>
+<body>
+  <div class="main-container">
+    <div class="examples-panel">
+      <h3>Hazır Örnekler</h3>
+      <ul class="example-list" id="example-list">
+        <!-- Örnekler JavaScript ile doldurulacak -->
+      </ul>
+    </div>
+    <div class="container">
+      <div class="panel">
+        <textarea id="editor"></textarea>
+        <div class="controls">
+          <button class="btn btn-primary" onclick="simulateRISCV()">
+            <i class="fas fa-play"></i> Simüle Et
+          </button>
+          <button class="btn btn-secondary" onclick="clearEditor()">
+            <i class="fas fa-trash"></i> Temizle
+          </button>
+          <button class="btn btn-secondary" onclick="saveCode()">
+            <i class="fas fa-save"></i> Kaydet
+          </button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="output-tabs">
+          <div class="tab active" data-target="output">Çıktı</div>
+          <div class="tab" data-target="debug">Hata Ayıklama</div>
+        </div>
+        <div id="output-container">
+          <div id="output" class="active">
+            Simülasyon çıktısı buraya gelecek...
+          </div>
+          <div id="debug" style="display: none">
+            <select
+              id="debug-filter"
+              class="debug-filter"
+              onchange="updateDebugPanel()"
+            >
+              <option value="all">Tümü</option>
+              <option value="info">INFO</option>
+              <option value="error">ERROR</option>
+              <option value="success">SUCCESS</option>
+            </select>
+            <div id="debug-logs"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    class RISCVSimulator {
+      constructor() {
+        this.registers = {
+          x0: 0,
+          ra: 0,
+          sp: 1000,
+          a0: 0,
+          a1: 0,
+          a2: 0,
+          a3: 0,
+          a4: 0,
+          a5: 0,
+          a7: 0,
+          s0: 0,
+          s1: 0,
+          s2: 0,
+          s3: 0,
+          s4: 0,
+          t0: 0,
+          t1: 0,
+          t2: 0,
+          t3: 0,
+          t4: 0,
+          t5: 0,
+          t6: 0
+        };
+        this.memory = {};
+        this.stack = [];
+        this.debug = [];
+        this.output = [];
+        this.current_line = 0;
+        this.labels = {};
+      }
+
+      // Label tarama
+      scanLabels(lines) {
+        this.labels = {};
+        lines.forEach((line, index) => {
+          const labelMatch = line.match(/^(\w+):/);
+          if (labelMatch) {
+            this.labels[labelMatch[1]] = index;
+          }
+        });
+      }
+
+      // Label satırı bulma
+      findLabelLine(label) {
+        if (this.labels.hasOwnProperty(label)) {
+          return this.labels[label];
+        }
+        throw new Error(`Label bulunamadı: ${label}`);
+      }
+
+      // Komut parse
+      parseInstruction(line) {
+        line = line.split('#')[0].trim();
+        if (!line) return null;
+        const labelMatch = line.match(/^(\w+):/);
+        if (labelMatch) return null;
+        const parts = line.split(/\s+/);
+        const instruction = parts[0];
+        const args = parts.slice(1).map((arg) => arg.replace(/,/g, ''));
+        return { instruction, args };
+      }
+
+      addDebug(message, type = 'info') {
+        this.debug.push({ message, type });
+      }
+
+      // Temel komutlar
+      li(rd, imm) {
+        this.registers[rd] = parseInt(imm);
+        this.addDebug(`${rd} registerına ${imm} yüklendi`, 'info');
+      }
+
+      add(rd, rs1, rs2) {
+        this.registers[rd] = this.registers[rs1] + this.registers[rs2];
+        this.addDebug(
+          `${rd} = ${rs1}(${this.registers[rs1]}) + ${rs2}(${this.registers[rs2]})`,
+          'info'
+        );
+      }
+
+      sub(rd, rs1, rs2) {
+        this.registers[rd] = this.registers[rs1] - this.registers[rs2];
+        this.addDebug(
+          `${rd} = ${rs1}(${this.registers[rs1]}) - ${rs2}(${this.registers[rs2]})`,
+          'info'
+        );
+      }
+
+      mul(rd, rs1, rs2) {
+        this.registers[rd] = this.registers[rs1] * this.registers[rs2];
+        this.addDebug(
+          `${rd} = ${rs1}(${this.registers[rs1]}) * ${rs2}(${this.registers[rs2]})`,
+          'info'
+        );
+      }
+
+      mv(rd, rs) {
+        this.registers[rd] = this.registers[rs];
+        this.addDebug(`${rd} = ${rs}(${this.registers[rs]})`, 'info');
+      }
+
+      addi(rd, rs, imm) {
+        this.registers[rd] = this.registers[rs] + parseInt(imm);
+        this.addDebug(`${rd} = ${rs}(${this.registers[rs]}) + ${imm}`, 'info');
+      }
+
+      sw(rs2, offset, rs1) {
+        const address = this.registers[rs1] + parseInt(offset);
+        this.memory[address] = this.registers[rs2];
+        this.stack.push({ address, value: this.registers[rs2] });
+        this.addDebug(`${rs2} değeri ${address} adresine yazıldı`, 'info');
+      }
+
+      lw(rd, offset, rs1) {
+        const address = this.registers[rs1] + parseInt(offset);
+        this.registers[rd] = this.memory[address] || 0;
+        this.addDebug(
+          `${rd} registerına ${address} adresinden değer okundu: ${this.registers[rd]}`,
+          'info'
+        );
+      }
+
+      // la komutu
+      la(rd, label) {
+        if (label === 'msg') {
+          this.registers[rd] = 'Merhaba, RISC-V Assembly!';
+          this.addDebug(`${rd} registerına "msg" verisi yüklendi`, 'info');
+        } else if (label === 'pattern') {
+          this.registers[rd] =
+            '*\n' +
+            '**\n' +
+            '***\n' +
+            '****\n' +
+            '*****\n' +
+            '******\n' +
+            '*******\n' +
+            '********\n' +
+            '*********\n' +
+            '**********\n';
+          this.addDebug(`${rd} registerına "pattern" (üçgen) verisi yüklendi`, 'info');
+        } else if (label === 'pattern1') {
+          this.registers[rd] =
+            '**********\n*        *\n*  DESEN *\n*        *\n**********\n';
+          this.addDebug(`${rd} registerına "pattern1" verisi yüklendi`, 'info');
+        } else if (label === 'pattern2') {
+          this.registers[rd] =
+            '##########\n#        #\n#  DESEN #\n#        #\n##########\n';
+          this.addDebug(`${rd} registerına "pattern2" verisi yüklendi`, 'info');
+        } else {
+          const address = this.labels[label];
+          if (address !== undefined) {
+            this.registers[rd] = address;
+            this.addDebug(`${rd} registerına ${label} label adresi yüklendi`, 'info');
+          } else {
+            this.addDebug(`la komutu: Bilinmeyen label: ${label}`, 'error');
+          }
+        }
+      }
+
+      jal(rd, label) {
+        this.registers[rd] = this.current_line + 1;
+        this.current_line = this.findLabelLine(label);
+        this.addDebug(
+          `${rd} registerına dönüş adresi kaydedildi, ${label} etiketine atlandı`,
+          'info'
+        );
+      }
+
+      jr(rs) {
+        this.current_line = this.registers[rs];
+        this.addDebug(`${rs} registerındaki adrese dönüş`, 'info');
+      }
+
+      beq(rs1, rs2, label) {
+        if (this.registers[rs1] === this.registers[rs2]) {
+          this.current_line = this.findLabelLine(label);
+          this.addDebug(`${rs1} ve ${rs2} eşit, ${label} etiketine atlandı`, 'info');
+          return true;
+        }
+        return false;
+      }
+
+      bne(rs1, rs2, label) {
+        if (this.registers[rs1] !== this.registers[rs2]) {
+          this.current_line = this.findLabelLine(label);
+          this.addDebug(`${rs1} ve ${rs2} farklı, ${label} etiketine atlandı`, 'info');
+          return true;
+        }
+        return false;
+      }
+
+      blez(rs, label) {
+        if (this.registers[rs] <= 0) {
+          this.current_line = this.findLabelLine(label);
+          this.addDebug(`${rs} <= 0, ${label} etiketine atlandı`, 'info');
+          return true;
+        }
+        return false;
+      }
+
+      bnez(rs, label) {
+        if (this.registers[rs] !== 0) {
+          this.current_line = this.findLabelLine(label);
+          this.addDebug(`${rs} != 0, ${label} etiketine atlandı`, 'info');
+          return true;
+        }
+        return false;
+      }
+
+      // ecall komutu
+      ecall() {
+        const callNum = this.registers.a7 === 0 ? this.registers.a0 : this.registers.a7;
+        switch (callNum) {
+          case 1: // Tamsayı yazdırma
+            this.output.push(this.registers.a1.toString());
+            break;
+          case 2: // String yazdırma
+            if (typeof this.registers.a0 === 'string') {
+              this.output.push(this.registers.a0);
+            } else {
+              let address = this.registers.a0,
+                str = '';
+              while (true) {
+                const charCode = this.memory[address];
+                if (!charCode || charCode === 0) break;
+                str += String.fromCharCode(charCode);
+                address++;
+              }
+              this.output.push(str);
+            }
+            break;
+          case 10: // Program sonu
+            this.addDebug('Program sonlandırıldı', 'success');
+            break;
+          default:
+            this.addDebug(`Geçersiz sistem çağrısı: a7=${callNum}`, 'error');
+        }
+      }
+
+      simulate(code) {
+        this.debug = [];
+        this.output = [];
+        this.stack = [];
+        this.memory = {};
+
+        // Kayıtları sıfırla (x0 hariç)
+        Object.keys(this.registers).forEach((reg) => {
+          if (reg !== 'x0') this.registers[reg] = 0;
+        });
+        this.registers.sp = 1000;
+
+        const lines = code
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line && !line.match(/^\s*#/));
+
+        this.scanLabels(lines);
+
+        this.current_line = lines.findIndex((line) => line.includes('main:'));
+        if (this.current_line === -1) {
+          this.addDebug('main: etiketi bulunamadı, 0. satırdan başlıyorum...', 'warning');
+          this.current_line = 0;
+        }
+        this.current_line++;
+
+        // Sonsuz döngüye karşı iterasyon limiti ekleniyor
+        let iterationCount = 0;
+        const MAX_ITERATIONS = 10000;
+
+        while (this.current_line < lines.length) {
+          iterationCount++;
+          if (iterationCount > MAX_ITERATIONS) {
+            this.addDebug('Maksimum döngü iterasyonu aşıldı. Muhtemel sonsuz döngü!', 'error');
+            break;
+          }
+
+          const line = lines[this.current_line];
+          try {
+            const parsed = this.parseInstruction(line);
+            if (!parsed) {
+              this.current_line++;
+              continue;
+            }
+            const { instruction, args } = parsed;
+
+            let jumped = false;
+            switch (instruction) {
+              case 'li':
+                this.li(args[0], args[1]);
+                break;
+              case 'add':
+                this.add(args[0], args[1], args[2]);
+                break;
+              case 'sub':
+                this.sub(args[0], args[1], args[2]);
+                break;
+              case 'mul':
+                this.mul(args[0], args[1], args[2]);
+                break;
+              case 'mv':
+                this.mv(args[0], args[1]);
+                break;
+              case 'addi':
+                this.addi(args[0], args[1], args[2]);
+                break;
+              case 'sw':
+                this.sw(args[0], args[1], args[2]);
+                break;
+              case 'lw':
+                this.lw(args[0], args[1], args[2]);
+                break;
+              case 'la':
+                this.la(args[0], args[1]);
+                break;
+              case 'jal':
+                this.jal(args[0], args[1]);
+                jumped = true;
+                break;
+              case 'jr':
+                this.jr(args[0]);
+                jumped = true;
+                break;
+              case 'beq':
+                jumped = this.beq(args[0], args[1], args[2]);
+                break;
+              case 'bne':
+                jumped = this.bne(args[0], args[1], args[2]);
+                break;
+              case 'blez':
+                jumped = this.blez(args[0], args[1]);
+                break;
+              case 'bnez':
+                jumped = this.bnez(args[0], args[1]);
+                break;
+              case 'ecall':
+                this.ecall();
+                break;
+              default:
+                this.addDebug(`Bilinmeyen komut: ${instruction}`, 'error');
+            }
+            if (!jumped) {
+              this.current_line++;
+            }
+          } catch (error) {
+            this.addDebug(`Yürütme Hatası: ${error.message}`, 'error');
+            break;
+          }
+        }
+        return {
+          output: this.output,
+          debug: this.debug
+        };
+      }
+    }
+
+    let editor;
+    document.addEventListener('DOMContentLoaded', () => {
+      editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+        mode: 'assembly',
+        theme: 'monokai',
+        lineNumbers: true,
+        autoCloseBrackets: true
+      });
+
+      const tabs = document.querySelectorAll('.tab');
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+          tab.classList.add('active');
+          const target = tab.getAttribute('data-target');
+          document.querySelectorAll('#output-container > div').forEach((div) => {
+            div.style.display = div.id === target ? 'block' : 'none';
+          });
+        });
+      });
+    });
+
+    function simulateRISCV() {
+      const code = editor.getValue();
+      const simulator = new RISCVSimulator();
+      try {
+        const result = simulator.simulate(code);
+        document.getElementById('output').innerHTML =
+          result.output.length > 0 ? result.output.join('<br>') : 'Çıktı üretilmedi';
+        window.simDebug = result.debug;
+        updateDebugPanel();
+      } catch (error) {
+        document.getElementById('debug-logs').innerHTML = `<div class="log-entry error">SİMÜLASYON HATASI: ${error.message}</div>`;
+      }
+    }
+
+    function updateDebugPanel() {
+      const filter = document.getElementById('debug-filter').value;
+      const debugLogs = window.simDebug || [];
+      const filteredLogs = filter === 'all' ? debugLogs : debugLogs.filter((d) => d.type === filter);
+      document.getElementById('debug-logs').innerHTML = filteredLogs
+        .map((d) => `<div class="log-entry ${d.type}">${d.type.toUpperCase()}: ${d.message}</div>`)
+        .join('');
+    }
+
+    function clearEditor() {
+      editor.setValue('');
+    }
+
+    function saveCode() {
+      const code = editor.getValue();
+      const blob = new Blob([code], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'code.asm';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Hazır örnekler
+    const codeExamples = [
+      {
+        title: 'Toplama Programı',
+        description: 'İki sayıyı toplar ve sonucu gösterir',
+        code: `.text
+.globl main
+main:
+    li t0, 15     
+    li t1, 27     
+    add t2, t0, t1
+    mv a1, t2
+    li a0, 1
+    ecall
+    li a0, 10
+    ecall`
+      },
+      {
+        title: 'Yazı Yazdırma',
+        description: 'Ekrana basit bir metin yazar',
+        code: `.data
+msg: .asciiz "Merhaba, RISC-V Assembly!"
+.text
+.globl main
+main:
+    la a0, msg
+    li a7, 2
+    ecall
+    li a7, 10
+    ecall`
+      },
+      {
+        title: 'Desen Yazdırma',
+        description: 'Çok satırlı üçgen deseni ekrana yazar',
+        code: `.data
+pattern: .asciiz "*\\n**\\n***\\n****\\n*****\\n******\\n*******"
+.text
+.globl main
+main:
+    la a0, pattern  # pattern => üçgen
+    li a7, 2        # string yazdır
+    ecall
+    li a7, 10       # program sonu
+    ecall`
+      },
+      {
+        title: 'İki Farklı Desen Yazdırma',
+        description: 'pattern1 ve pattern2 etiketlerini sırasıyla yazar',
+        code: `.data
+pattern1: .asciiz "**********\\n*      *\\n*  DESEN *\\n*      *\\n**********\\n"
+pattern2: .asciiz "##########\\n#      #\\n#  DESEN #\\n#      #\\n##########\\n"
+.text
+.globl main
+main:
+    la a0, pattern1
+    li a7, 2
+    ecall
+    la a0, pattern2
+    li a7, 2
+    ecall
+    li a7, 10
+    ecall`
+      },
+      {
+        title: 'Sayaç ile Döngü (Düzeltilmiş)',
+        description: 'Sayaç değeri t0 üzerinden okunur ve döngü adımında sayı a1 registerına kopyalanarak doğru değer yazdırılır.',
+        code: `.data
+newline: .asciz "\n"  # Yeni satır karakteri
+
+.text
+.globl main
+main:
+    addi t0, x0, 5      # t0 = 5 (Sayaç)
+
+loop:
+    # t0 değerini ekrana yazdır (print integer için a1 registerı kullanılıyor)
+    addi a7, x0, 1      # Print integer syscall numarası
+    add  a1, t0, x0     # a1 = t0 (yazdırılacak sayı)
+    ecall               # Syscall ile yazdır
+
+    # Yeni satır karakterini yazdır
+    addi a7, x0, 4      # Print string syscall numarası
+    la   a0, newline    # a0 = newline adresi
+    ecall               # Syscall ile yazdır
+
+    # Sayaç azalt
+    addi t0, t0, -1     # t0 = t0 - 1
+    bne t0, x0, loop    # t0 != 0 ise döngüye geri git
+
+    # Programı sonlandır
+    addi a7, x0, 10     # Exit syscall numarası
+    ecall               # Programı sonlandır`
+      }
+    ];
+
+    const exampleList = document.getElementById('example-list');
+    codeExamples.forEach((example) => {
+      const listItem = document.createElement('li');
+      listItem.classList.add('example-item');
+      listItem.innerHTML = `
+        <strong>${example.title}</strong>
+        <div class="example-desc">${example.description}</div>
+      `;
+      listItem.addEventListener('click', () => {
+        editor.setValue(example.code);
+      });
+      exampleList.appendChild(listItem);
+    });
+  </script>
+</body>
+</html>
