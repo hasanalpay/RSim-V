@@ -1,4 +1,43 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -18,172 +57,374 @@
   />
   <style>
     :root {
-      --bg-primary: #2c3e50;
-      --bg-secondary: #34495e;
-      --text-primary: #ecf0f1;
-      --text-secondary: #bdc3c7;
-      --accent-color: #3498db;
-      --error-color: #e74c3c;
-      --warning-color: #f39c12;
-      --success-color: #2ecc71;
+      --bg-primary: #1e2a44;
+      --bg-secondary: #2a3b5b;
+      --text-primary: #e0e7ff;
+      --text-secondary: #a3bffa;
+      --accent-color: #3b82f6;
+      --error-color: #ef4444;
+      --warning-color: #f59e0b;
+      --success-color: #10b981;
+      --border-radius: 8px;
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     }
+
     * {
       box-sizing: border-box;
-      transition: all 0.3s ease;
-    }
-    body {
-      font-family: 'Inter', 'Arial', sans-serif;
-      background: linear-gradient(135deg, var(--bg-primary) 0%, #273746 100%);
-      color: var(--text-primary);
       margin: 0;
-      padding: 20px;
-      line-height: 1.6;
+      padding: 0;
+      transition: all 0.2s ease;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(145deg, var(--bg-primary), #172554);
+      color: var(--text-primary);
+      padding: 24px;
       min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
     }
+
     .main-container {
       display: flex;
       max-width: 1600px;
       width: 100%;
-      gap: 20px;
-    }
-    .examples-panel {
-      width: 250px;
-      background: rgba(52, 73, 94, 0.7);
-      border-radius: 8px;
-      padding: 15px;
-      max-height: 800px;
-      overflow-y: auto;
-    }
-    .example-list {
-      list-style-type: none;
-      padding: 0;
-    }
-    .example-item {
-      background: #2c3e50;
-      margin-bottom: 10px;
-      padding: 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-    .example-item:hover {
-      background: var(--accent-color);
-    }
-    .container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      flex-grow: 1;
-      max-width: 1400px;
-      background: rgba(44, 62, 80, 0.8);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(10px);
-    }
-    .panel {
-      background: rgba(52, 73, 94, 0.7);
-      border-radius: 8px;
-      padding: 15px;
-    }
-    .CodeMirror {
-      height: 500px !important;
-      background: #263238;
-      color: #7fdbca;
-    }
-    .controls {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
+      gap: 24px;
       flex-wrap: wrap;
     }
+
+    .examples-panel {
+      width: 280px;
+      background: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      max-height: 800px;
+      overflow-y: auto;
+      box-shadow: var(--shadow);
+    }
+
+    .examples-panel h3 {
+      font-size: 1.25rem;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    .example-list {
+      list-style: none;
+    }
+
+    .example-item {
+      background: var(--bg-primary);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .example-item:hover {
+      background: var(--accent-color);
+      transform: translateY(-2px);
+    }
+
+    .example-item strong {
+      font-size: 1rem;
+      color: var(--text-primary);
+    }
+
+    .example-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .container {
+      flex-grow: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 24px;
+      background: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      background: var(--bg-primary);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .editor-panel {
+      grid-column: 1 / 2;
+      grid-row: 1 / 2;
+      overflow-y: auto;
+      overflow-x: auto;
+    }
+
+    .output-panel {
+      grid-column: 2 / 3;
+      grid-row: 1 / 2;
+    }
+
+    .registers-panel {
+      grid-column: 1 / 3;
+      grid-row: 2 / 3;
+    }
+
+    .CodeMirror {
+      height: 550px !important;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #1a202c;
+      color: var(--text-primary);
+      border: 1px solid #4b5e7e;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
     .btn {
-      padding: 10px 15px;
+      padding: 10px 16px;
       border: none;
       border-radius: 6px;
       cursor: pointer;
+      font-weight: 600;
       display: flex;
       align-items: center;
       gap: 8px;
-      font-weight: bold;
+      font-size: 0.95rem;
+      transition: transform 0.2s ease, background 0.2s ease;
     }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
     .btn-primary {
       background: var(--accent-color);
       color: white;
     }
-    .btn-secondary {
-      background: #2c3e50;
-      color: var(--text-secondary);
+
+    .btn-primary:hover {
+      background: #2563eb;
     }
+
+    .btn-secondary {
+      background: #374151;
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+
     .output-tabs {
       display: flex;
-      gap: 10px;
-      margin-bottom: 10px;
+      gap: 8px;
+      margin-bottom: 12px;
     }
+
     .tab {
-      padding: 8px 15px;
-      background: #2c3e50;
+      padding: 8px 16px;
+      background: #374151;
       border-radius: 6px;
       cursor: pointer;
-      transition: all 0.3s ease;
+      font-size: 0.95rem;
+      color: var(--text-primary);
     }
+
+    .tab:hover {
+      background: #4b5563;
+    }
+
     .tab.active {
       background: var(--accent-color);
       color: white;
     }
+
     #output-container > div {
-      background: #263238;
+      background: #1a202c;
       border-radius: 6px;
-      padding: 15px;
+      padding: 16px;
       max-height: 400px;
       overflow-y: auto;
-      white-space: pre;
-    }
-    .example-desc {
-      color: var(--text-secondary);
-      font-size: 0.8em;
-      margin-top: 5px;
-    }
-    .log-entry {
-      margin-bottom: 5px;
-      padding: 5px;
-      border-radius: 4px;
-    }
-    .log-entry.error {
-      background-color: rgba(231, 76, 60, 0.2);
-      color: #e74c3c;
-    }
-    .log-entry.info {
-      background-color: rgba(52, 152, 219, 0.2);
-      color: #3498db;
-    }
-    .log-entry.success {
-      background-color: rgba(46, 204, 113, 0.2);
-      color: #2ecc71;
-    }
-    .debug-filter {
-      margin-bottom: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      color: var(--text-primary);
+      border: 1px solid #4b5e7e;
+      scroll-behavior: smooth;
+      white-space: pre-wrap;
     }
 
-    /* Mobil cihazlar için düzenlemeler */
-    @media (max-width: 768px) {
+    #output {
+      white-space: pre-wrap;
+    }
+
+    .debug-filter {
+      padding: 8px;
+      border-radius: 6px;
+      background: #374151;
+      color: var(--text-primary);
+      border: none;
+      font-size: 0.9rem;
+    }
+
+    .log-entry {
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+    }
+
+    .log-entry.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--error-color);
+    }
+
+    .log-entry.info {
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--accent-color);
+    }
+
+    .log-entry.success {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success-color);
+    }
+
+    .registers-panel h3 {
+      font-size: 1.25rem;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    .registers-table {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+    }
+
+    .register-entry {
+      background: #1a202c;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #4b5e7e;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .register-name {
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+
+    .register-value {
+      color: var(--text-secondary);
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #1a202c;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--accent-color);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #2563eb;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1024px) {
       .main-container {
         flex-direction: column;
-        align-items: stretch;
       }
+
       .examples-panel {
         width: 100%;
         max-height: 300px;
       }
+
       .container {
         grid-template-columns: 1fr;
-        max-width: 100%;
+        grid-template-rows: auto auto auto;
       }
+
+      .editor-panel {
+        grid-column: 1 / 2;
+        grid-row: 1 / 2;
+        overflow-y: auto;
+        overflow-x: auto;
+      }
+
+      .output-panel {
+        grid-column: 1 / 2;
+        grid-row: 2 / 3;
+      }
+
+      .registers-panel {
+        grid-column: 1 / 2;
+        grid-row: 3 / 4;
+      }
+
       .CodeMirror {
-        height: 300px !important;
+        height: 400px !important;
+      }
+
+      #output-container > div {
+        max-height: 300px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 16px;
+      }
+
+      .container {
+        padding: 16px;
+      }
+
+      .panel {
+        padding: 16px;
+      }
+
+      .CodeMirror {
+        height: 350px !important;
+        font-size: 13px;
+      }
+
+      .btn {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+      }
+
+      .examples-panel {
+        padding: 16px;
+      }
+
+      .registers-table {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
       }
     }
   </style>
@@ -203,7 +444,7 @@
       </ul>
     </div>
     <div class="container">
-      <div class="panel">
+      <div class="panel editor-panel">
         <textarea id="editor"></textarea>
         <div class="controls">
           <button class="btn btn-primary" onclick="simulateRISCV()">
@@ -217,7 +458,7 @@
           </button>
         </div>
       </div>
-      <div class="panel">
+      <div class="panel output-panel">
         <div class="output-tabs">
           <div class="tab active" data-target="output">Çıktı</div>
           <div class="tab" data-target="debug">Hata Ayıklama</div>
@@ -241,10 +482,47 @@
           </div>
         </div>
       </div>
+      <div class="panel registers-panel">
+        <h3>Kayıt Değerleri</h3>
+        <div class="registers-table" id="registers-table">
+          <!-- Register values will be populated by JavaScript -->
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
+    var gk_isXlsx = false;
+    var gk_xlsxFileLookup = {};
+    var gk_fileData = {};
+    function filledCell(cell) {
+      return cell !== '' && cell != null;
+    }
+    function loadFileData(filename) {
+      if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+        try {
+          var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+          var firstSheetName = workbook.SheetNames[0];
+          var worksheet = workbook.Sheets[firstSheetName];
+          var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+          var filteredData = jsonData.filter(row => row.some(filledCell));
+          var headerRowIndex = filteredData.findIndex((row, index) =>
+            row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+          );
+          if (headerRowIndex === -1 || headerRowIndex > 25) {
+            headerRowIndex = 0;
+          }
+          var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+          csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+          return csv;
+        } catch (e) {
+          console.error(e);
+          return "";
+        }
+      }
+      return gk_fileData[filename] || "";
+    }
+
     class RISCVSimulator {
       constructor() {
         this.registers = {
@@ -279,7 +557,6 @@
         this.labels = {};
       }
 
-      // Label tarama
       scanLabels(lines) {
         this.labels = {};
         lines.forEach((line, index) => {
@@ -290,7 +567,6 @@
         });
       }
 
-      // Label satırı bulma
       findLabelLine(label) {
         if (this.labels.hasOwnProperty(label)) {
           return this.labels[label];
@@ -298,7 +574,6 @@
         throw new Error(`Label bulunamadı: ${label}`);
       }
 
-      // Komut parse
       parseInstruction(line) {
         line = line.split('#')[0].trim();
         if (!line) return null;
@@ -314,7 +589,6 @@
         this.debug.push({ message, type });
       }
 
-      // Temel komutlar
       li(rd, imm) {
         this.registers[rd] = parseInt(imm);
         this.addDebug(`${rd} registerına ${imm} yüklendi`, 'info');
@@ -370,7 +644,6 @@
         );
       }
 
-      // la komutu
       la(rd, label) {
         if (label === 'msg') {
           this.registers[rd] = 'Merhaba, RISC-V Assembly!';
@@ -457,14 +730,13 @@
         return false;
       }
 
-      // ecall komutu
       ecall() {
-        const callNum = this.registers.a7 === 0 ? this.registers.a0 : this.registers.a7;
+        const callNum = this.registers.a7;
         switch (callNum) {
-          case 1: // Tamsayı yazdırma
-            this.output.push(this.registers.a1.toString());
+          case 1:
+            this.output.push(this.registers.a0.toString());
             break;
-          case 2: // String yazdırma
+          case 4:
             if (typeof this.registers.a0 === 'string') {
               this.output.push(this.registers.a0);
             } else {
@@ -479,12 +751,60 @@
               this.output.push(str);
             }
             break;
-          case 10: // Program sonu
+          case 10:
             this.addDebug('Program sonlandırıldı', 'success');
+            break;
+          case 2:
+            if (typeof this.registers.a0 === 'string') {
+              this.output.push(this.registers.a0);
+            } else {
+              let address = this.registers.a0,
+                str = '';
+              while (true) {
+                const charCode = this.memory[address];
+                if (!charCode || charCode === 0) break;
+                str += String.fromCharCode(charCode);
+                address++;
+              }
+              this.output.push(str);
+            }
+            this.addDebug('NOT: Sistem çağrısı 2 yerine 4 kullanmanız önerilir', 'warning');
             break;
           default:
             this.addDebug(`Geçersiz sistem çağrısı: a7=${callNum}`, 'error');
         }
+      }
+
+      and(rd, rs1, rs2) {
+        this.registers[rd] = this.registers[rs1] & this.registers[rs2];
+        this.addDebug(
+          `${rd} = ${rs1}(${this.registers[rs1]}) & ${rs2}(${this.registers[rs2]})`,
+          'info'
+        );
+      }
+
+      or(rd, rs1, rs2) {
+        this.registers[rd] = this.registers[rs1] | this.registers[rs2];
+        this.addDebug(
+          `${rd} = ${rs1}(${this.registers[rs1]}) | ${rs2}(${this.registers[rs2]})`,
+          'info'
+        );
+      }
+
+      xor(rd, rs1, rs2) {
+        this.registers[rd] = this.registers[rs1] ^ this.registers[rs2];
+        this.addDebug(
+          `${rd} = ${rs1}(${this.registers[rs1]}) ^ ${rs2}(${this.registers[rs2]})`,
+          'info'
+        );
+      }
+
+      not(rd, rs) {
+        this.registers[rd] = ~this.registers[rs];
+        this.addDebug(
+          `${rd} = ~${rs}(${this.registers[rs]})`,
+          'info'
+        );
       }
 
       simulate(code) {
@@ -493,7 +813,6 @@
         this.stack = [];
         this.memory = {};
 
-        // Kayıtları sıfırla (x0 hariç)
         Object.keys(this.registers).forEach((reg) => {
           if (reg !== 'x0') this.registers[reg] = 0;
         });
@@ -513,7 +832,6 @@
         }
         this.current_line++;
 
-        // Sonsuz döngüye karşı iterasyon limiti ekleniyor
         let iterationCount = 0;
         const MAX_ITERATIONS = 10000;
 
@@ -585,6 +903,18 @@
               case 'ecall':
                 this.ecall();
                 break;
+              case 'and':
+                this.and(args[0], args[1], args[2]);
+                break;
+              case 'or':
+                this.or(args[0], args[1], args[2]);
+                break;
+              case 'xor':
+                this.xor(args[0], args[1], args[2]);
+                break;
+              case 'not':
+                this.not(args[0], args[1]);
+                break;
               default:
                 this.addDebug(`Bilinmeyen komut: ${instruction}`, 'error');
             }
@@ -598,7 +928,8 @@
         }
         return {
           output: this.output,
-          debug: this.debug
+          debug: this.debug,
+          registers: this.registers
         };
       }
     }
@@ -630,10 +961,12 @@
       const simulator = new RISCVSimulator();
       try {
         const result = simulator.simulate(code);
-        document.getElementById('output').innerHTML =
-          result.output.length > 0 ? result.output.join('<br>') : 'Çıktı üretilmedi';
+        const outputDiv = document.getElementById('output');
+        outputDiv.innerHTML = result.output.length > 0 ? result.output.join('<br>') : 'Çıktı üretilmedi';
+        outputDiv.scrollTop = 0;
         window.simDebug = result.debug;
         updateDebugPanel();
+        updateRegistersPanel(result.registers);
       } catch (error) {
         document.getElementById('debug-logs').innerHTML = `<div class="log-entry error">SİMÜLASYON HATASI: ${error.message}</div>`;
       }
@@ -648,8 +981,25 @@
         .join('');
     }
 
+    function updateRegistersPanel(registers) {
+      const registersTable = document.getElementById('registers-table');
+      registersTable.innerHTML = '';
+      Object.entries(registers).forEach(([name, value]) => {
+        const entry = document.createElement('div');
+        entry.classList.add('register-entry');
+        entry.innerHTML = `
+          <span class="register-name">${name}</span>
+          <span class="register-value">${value}</span>
+        `;
+        registersTable.appendChild(entry);
+      });
+    }
+
     function clearEditor() {
       editor.setValue('');
+      document.getElementById('output').innerHTML = 'Simülasyon çıktısı buraya gelecek...';
+      document.getElementById('debug-logs').innerHTML = '';
+      document.getElementById('registers-table').innerHTML = '';
     }
 
     function saveCode() {
@@ -665,7 +1015,6 @@
       URL.revokeObjectURL(url);
     }
 
-    // Hazır örnekler
     const codeExamples = [
       {
         title: 'Toplama Programı',
@@ -676,10 +1025,10 @@ main:
     li t0, 15     
     li t1, 27     
     add t2, t0, t1
-    mv a1, t2
-    li a0, 1
+    mv a0, t2     # Sonucu a0'a kopyala
+    li a7, 1      # Tamsayı yazdırma sistem çağrısı
     ecall
-    li a0, 10
+    li a7, 10     # Program sonu
     ecall`
       },
       {
@@ -690,10 +1039,10 @@ msg: .asciiz "Merhaba, RISC-V Assembly!"
 .text
 .globl main
 main:
-    la a0, msg
-    li a7, 2
+    la a0, msg    # String adresini a0'a yükle
+    li a7, 4      # String yazdırma sistem çağrısı
     ecall
-    li a7, 10
+    li a7, 10     # Program sonu
     ecall`
       },
       {
@@ -705,7 +1054,7 @@ pattern: .asciiz "*\\n**\\n***\\n****\\n*****\\n******\\n*******"
 .globl main
 main:
     la a0, pattern  # pattern => üçgen
-    li a7, 2        # string yazdır
+    li a7, 4        # string yazdır
     ecall
     li a7, 10       # program sonu
     ecall`
@@ -714,49 +1063,101 @@ main:
         title: 'İki Farklı Desen Yazdırma',
         description: 'pattern1 ve pattern2 etiketlerini sırasıyla yazar',
         code: `.data
-pattern1: .asciiz "**********\\n*      *\\n*  DESEN *\\n*      *\\n**********\\n"
-pattern2: .asciiz "##########\\n#      #\\n#  DESEN #\\n#      #\\n##########\\n"
+pattern1: .asciiz "**********\\n*  *\\n*  DESEN *\\n*  *\\n**********"
+pattern2: .asciiz "\\n##########\\n#  #\\n#  DESEN #\\n#  #\\n##########"
 .text
 .globl main
 main:
-    la a0, pattern1
-    li a7, 2
+    la a0, pattern1  # a0 = pattern1 adresi
+    li a7, 4         # string yazdır
     ecall
-    la a0, pattern2
-    li a7, 2
+    la a0, pattern2  # a0 = pattern2 adresi 
+    li a7, 4         # string yazdır
     ecall
-    li a7, 10
+    li a7, 10        # program sonu
     ecall`
       },
       {
-        title: 'Sayaç ile Döngü (Düzeltilmiş)',
-        description: 'Sayaç değeri t0 üzerinden okunur ve döngü adımında sayı a1 registerına kopyalanarak doğru değer yazdırılır.',
+        title: 'Sayaç ile Döngü',
+        description: 'Sayaç değeri 5\'den 1\'e kadar geri sayar ve her değeri ekrana yazar',
         code: `.data
 newline: .asciz "\n"  # Yeni satır karakteri
 
 .text
 .globl main
 main:
-    addi t0, x0, 5      # t0 = 5 (Sayaç)
+    li t0, 5      # t0 = 5 (Sayaç)
 
 loop:
-    # t0 değerini ekrana yazdır (print integer için a1 registerı kullanılıyor)
-    addi a7, x0, 1      # Print integer syscall numarası
-    add  a1, t0, x0     # a1 = t0 (yazdırılacak sayı)
-    ecall               # Syscall ile yazdır
+    # t0 değerini ekrana yazdır
+    mv a0, t0     # a0 = t0 (yazdırılacak sayı)
+    li a7, 1      # Print integer syscall numarası
+    ecall         # Syscall ile yazdır
 
     # Yeni satır karakterini yazdır
-    addi a7, x0, 4      # Print string syscall numarası
-    la   a0, newline    # a0 = newline adresi
-    ecall               # Syscall ile yazdır
+    la a0, newline    # a0 = newline adresi
+    li a7, 4      # Print string syscall numarası
+    ecall         # Syscall ile yazdır
 
     # Sayaç azalt
     addi t0, t0, -1     # t0 = t0 - 1
-    bne t0, x0, loop    # t0 != 0 ise döngüye geri git
+    bnez t0, loop    # t0 != 0 ise döngüye geri git
 
     # Programı sonlandır
-    addi a7, x0, 10     # Exit syscall numarası
-    ecall               # Programı sonlandır`
+    li a7, 10     # Exit syscall numarası
+    ecall         # Programı sonlandır`
+      },
+      {
+        title: 'Mantıksal İşlemler',
+        description: 'İki sayının AND, OR, XOR ve NOT işlemlerini yapar ve sonuçları gösterir',
+        code: `.data
+newline: .asciz "\\n"  # Yeni satır karakteri
+
+.text
+.globl main
+main:
+    li t0, 12     # t0 = 12 (0b1100)
+    li t1, 10     # t1 = 10 (0b1010)
+
+    # AND işlemi
+    and t2, t0, t1  # t2 = t0 & t1
+    mv a0, t2       # Sonucu a0'a kopyala
+    li a7, 1        # Tamsayı yazdırma sistem çağrısı
+    ecall
+    la a0, newline  # Yeni satır
+    li a7, 4
+    ecall
+
+    # OR işlemi
+    or t2, t0, t1   # t2 = t0 | t1
+    mv a0, t2
+    li a7, 1
+    ecall
+    la a0, newline
+    li a7, 4
+    ecall
+
+    # XOR işlemi
+    xor t2, t0, t1  # t2 = t0 ^ t1
+    mv a0, t2
+    li a7, 1
+    ecall
+    la a0, newline
+    li a7, 4
+    ecall
+
+    # NOT işlemi (t0 üzerinde)
+    not t2, t0      # t2 = ~t0
+    mv a0, t2
+    li a7, 1
+    ecall
+    la a0, newline
+    li a7, 4
+    ecall
+
+    # Programı sonlandır
+    li a7, 10
+    ecall`
       }
     ];
 
